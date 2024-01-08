@@ -1,37 +1,31 @@
-from gurobi import Model, GRB
+from gurobipy import *
 
-# Initialise the model
-model = Model("JaneStreet: Sum of Squares")
+# Given row and column sums
+row_sums = [3, 9, 10, 13, 13, 8, 7, 2]
+col_sums = [9, 12, 12, 10, 8, 8, 4, 2]
 
-# Divisors for rows and columns.
-# [0] to [4] are row divisors (top-bottom),
-# [5] to [9] are column divisors (left-right)
-divisors = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+# Gurobi model
+model = Model("JaneStreet: Some F Squares")
 
-# Create variables: a 5x5 grid of digits
-grid = [[model.addVar(vtype=GRB.INTEGER, lb=0, ub=9, name=f"cell_{r}_{c}") for c in range(5)] for r in range(5)]
+# Variables for each cell in the grid
+grid = [[model.addVar(vtype=GRB.INTEGER, lb=0, ub=9, name=f"cell_{r}_{c}") for c in range(8)] for r in range(8)]
 
-# Set the objective: Maximise the sum of all digits
-model.setObjective(sum(sum(cell for cell in row) for row in grid), GRB.MAXIMIZE)
+# Add constraints to enforce row and column sums
+for r in range(8):
+    model.addConstr(quicksum(grid[r][c] for c in range(8)) == row_sums[r], f"row_sum_{r}")
 
-# Add constraints for divisibility
-for i in range(5):
-    # Row divisor constraints
-    quotient_row = model.addVar(vtype=GRB.INTEGER, name=f"quotient_row_{i}")
-    model.addConstr(sum(grid[i][j] * 10**(4-j) for j in range(5)) == divisors[i] * quotient_row, f"row_div_{i}")
-
-    # Column divisor constraints
-    quotient_col = model.addVar(vtype=GRB.INTEGER, name=f"quotient_col_{i}")
-    model.addConstr(sum(grid[j][i] * 10**(4-j) for j in range(5)) == divisors[5+i] * quotient_col, f"col_div_{i}")
+for c in range(8):
+    model.addConstr(quicksum(grid[r][c] for r in range(8)) == col_sums[c], f"col_sum_{c}")    
 
 # Optimise the model
 model.setParam('MIPGap', 0)
 model.setParam('MIPFocus', 2)
 model.optimize()
 
+# Check the status of the optimization
 # Check for solution and print results.
 if model.status == GRB.OPTIMAL:
-    solution = [[int(grid[i][j].x) for j in range(5)] for i in range(5)]
+    solution = [[int(grid[i][j].x) for j in range(8)] for i in range(8)]
     total_sum = sum(sum(row) for row in solution)
     print(f"Optimal sum: {total_sum}")
     print("Grid:")
